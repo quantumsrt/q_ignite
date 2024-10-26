@@ -4,7 +4,6 @@ A comprehensive vehicle engine management system that enhances realism by requir
 
 ## Features
 - **Manual Engine Control**: Engines are off by default when entering vehicles and must be started manually
-- **Automatic W Key Simulation**: Simulates a quick throttle press during ignition for realistic engine starting
 - **Smart Engine Status UI**: 
   - Shows engine ignition prompt when entering vehicles
   - Displays engine shutdown option after being stationary for 6 seconds
