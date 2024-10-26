@@ -11,6 +11,10 @@ Config.KillEngineDelay = 2000   -- Time in ms before showing Ignite Engine UI af
 Config.StationaryDelay = 6000   -- Time in ms vehicle must be stationary before showing Kill Engine UI
 Config.IgnitionDelay = 7000     -- Time in ms after ignition before showing Kill Engine UI when stationary
 
+-- Engine Persistence
+Config.PersistentEngine = true    -- If true, engine stays on when exiting vehicle
+Config.RememberState = true       -- If true, remembers engine state even after vehicle reload/respawn
+
 -- TextUI Settings
 Config.TextUI = {
     position = "top-center",    -- Positions: top-center, right-center, left-center, bottom-center
