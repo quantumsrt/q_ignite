@@ -9,6 +9,8 @@ local ignitionTimer = 0
 local engineJustKilled = false
 local killTimer = 0
 local isStartingEngine = false
+local justEnteredVehicle = false
+local vehicleEntryTimer = 0
 
 -- Function to check if vehicle should use this system
 local function shouldUseSystem(vehicle)
@@ -130,15 +132,60 @@ CreateThread(function()
                 
                 -- Initialize engine state if not exists
                 if engineState[plate] == nil then
-                    engineState[plate] = false
-                    SetVehicleEngineOn(vehicle, false, true, true)
-                    handleTextUI(false, true)
+                    if Config.RememberState then
+                        -- Keep the current engine state
+                        engineState[plate] = GetIsVehicleEngineRunning(vehicle)
+                        if engineState[plate] then
+                            justEnteredVehicle = true
+                            vehicleEntryTimer = GetGameTimer()
+                            hideTextUI()
+                        else
+                            handleTextUI(false, true)
+                        end
+                    else
+                        -- Default to engine off
+                        engineState[plate] = false
+                        SetVehicleEngineOn(vehicle, false, true, true)
+                        handleTextUI(false, true)
+                    end
                 end
                 
-                -- Handle engine off state
-                if not engineState[plate] then
-                    SetVehicleEngineOn(vehicle, false, true, true)
-                    
+                -- Maintain engine state
+                SetVehicleEngineOn(vehicle, engineState[plate], true, true)
+                
+                -- Handle engine state
+                if engineState[plate] then
+                    if justIgnited then
+                        -- Check if delay has passed since ignition
+                        if GetGameTimer() - ignitionTimer >= Config.IgnitionDelay then
+                            justIgnited = false
+                            if isVehicleStationary(vehicle) then
+                                handleTextUI(true)
+                            end
+                        end
+                    elseif justEnteredVehicle then
+                        if GetGameTimer() - vehicleEntryTimer >= Config.StationaryDelay then
+                            justEnteredVehicle = false
+                            if isVehicleStationary(vehicle) then
+                                handleTextUI(true)
+                                isStationary = true
+                                stationaryTimer = GetGameTimer()
+                            end
+                        end
+                    elseif isVehicleStationary(vehicle) then
+                        if not isStationary then
+                            isStationary = true
+                            stationaryTimer = GetGameTimer()
+                            hideTextUI()
+                        elseif GetGameTimer() - stationaryTimer >= Config.StationaryDelay then
+                            handleTextUI(true)
+                        end
+                    else
+                        isStationary = false
+                        stationaryTimer = 0
+                        hideTextUI()
+                    end
+                else
                     -- Show "Ignite Engine" TextUI after delay
                     if engineJustKilled then
                         if GetGameTimer() - killTimer >= Config.KillEngineDelay then
@@ -148,29 +195,6 @@ CreateThread(function()
                     elseif not engineJustKilled and not isStartingEngine then
                         handleTextUI(false)
                     end
-                else
-                    -- Handle engine on state
-                    if justIgnited then
-                        -- Check if delay has passed since ignition
-                        if GetGameTimer() - ignitionTimer >= Config.IgnitionDelay then
-                            justIgnited = false
-                        end
-                    end
-
-                    -- Handle stationary state and UI
-                    if isVehicleStationary(vehicle) then
-                        if not isStationary then
-                            isStationary = true
-                            stationaryTimer = GetGameTimer()
-                            hideTextUI()
-                        elseif GetGameTimer() - stationaryTimer >= Config.StationaryDelay and not justIgnited then
-                            handleTextUI(true)
-                        end
-                    else
-                        isStationary = false
-                        stationaryTimer = 0
-                        hideTextUI()
-                    end
                 end
                 
                 -- Handle engine control key press
@@ -179,12 +203,13 @@ CreateThread(function()
                 end
             end
         else
-            -- Reset states when not in vehicle
+            -- Only hide UI when leaving vehicle
             hideTextUI()
             isStationary = false
             justIgnited = false
             engineJustKilled = false
             isStartingEngine = false
+            justEnteredVehicle = false
             stationaryTimer = 0
         end
         
@@ -199,10 +224,46 @@ AddEventHandler('gameEventTriggered', function(name, args)
         local vehicle = args[2]
         if DoesEntityExist(vehicle) and shouldUseSystem(vehicle) then
             local plate = GetVehicleNumberPlateText(vehicle)
-            engineState[plate] = false
-            SetVehicleEngineOn(vehicle, false, true, true)
-            handleTextUI(false, true)
+            
+            -- Check if we should initialize the engine state
+            if engineState[plate] == nil then
+                if Config.RememberState then
+                    -- Keep the current engine state
+                    engineState[plate] = GetIsVehicleEngineRunning(vehicle)
+                    if engineState[plate] then
+                        justEnteredVehicle = true
+                        vehicleEntryTimer = GetGameTimer()
+                        hideTextUI()
+                    else
+                        handleTextUI(false, true)
+                    end
+                else
+                    -- Default to engine off
+                    engineState[plate] = false
+                    SetVehicleEngineOn(vehicle, false, true, true)
+                    handleTextUI(false, true)
+                end
+            else
+                if engineState[plate] then
+                    justEnteredVehicle = true
+                    vehicleEntryTimer = GetGameTimer()
+                    hideTextUI()
+                else
+                    handleTextUI(false, true)
+                end
+            end
+            
+            -- Apply the engine state
+            SetVehicleEngineOn(vehicle, engineState[plate], true, true)
         end
+    end
+end)
+
+-- Event handler for vehicle exit
+AddEventHandler('gameEventTriggered', function(name)
+    if name == 'CEventNetworkPlayerLeftVehicle' then
+        -- Only hide the UI, don't change engine state
+        hideTextUI()
     end
 end)
 
@@ -213,9 +274,20 @@ CreateThread(function()
         local vehicle = GetVehiclePedIsIn(ped, false)
         if DoesEntityExist(vehicle) and shouldUseSystem(vehicle) then
             local plate = GetVehicleNumberPlateText(vehicle)
-            engineState[plate] = false
-            SetVehicleEngineOn(vehicle, false, true, true)
-            handleTextUI(false, true)
+            if Config.RememberState then
+                engineState[plate] = GetIsVehicleEngineRunning(vehicle)
+                if engineState[plate] then
+                    justEnteredVehicle = true
+                    vehicleEntryTimer = GetGameTimer()
+                    hideTextUI()
+                else
+                    handleTextUI(false, true)
+                end
+            else
+                engineState[plate] = false
+                SetVehicleEngineOn(vehicle, false, true, true)
+                handleTextUI(false, true)
+            end
         end
     end
 end)
